@@ -1,0 +1,1297 @@
+openapi: 3.0.4
+info:
+  title: Swagger TravelGram - OpenAPI 3.0
+  description: |-
+     TravelGram designed specifically for travelers and travel enthusiasts. Users can share their journey experiences through photo-rich posts with location tags, discover trending destinations, and connect with fellow travelers. The platform enables users to build their travel community by following other adventurers, engaging through comments and reactions, and exploring personalized feeds showcasing the latest travel stories from around the world. Whether seeking inspiration for the next trip or sharing memorable moments from current adventures, TravelGram connects people through their shared passion for exploration
+  termsOfService: https://swagger.io/terms/
+  contact:
+    email: apiteam@swagger.io
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.12
+externalDocs:
+  description: Find out more about Swagger
+  url: https://swagger.io
+servers:
+  - url: https://petstore3.swagger.io/api/v3
+tags:
+  - name: posts
+    description: Manage users' posts
+  - name: comments
+    description: Manage users' comments to posts and their reactions
+  - name: subscribtion
+    description: Manage users' subs to each other
+  - name: search
+    description: Search places and posts related to each place
+  - name: feed
+    description: Read users's posts you subscribed and you own posts
+paths:
+  # Posts
+  /posts/:
+    post:
+      tags:
+        - posts
+      summary: Create a post
+      description: Create a new post about your last adventure
+      operationId: createPost
+      requestBody:
+        description: Update an existing post
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostShort"
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /posts/{uuid}/images/:
+    post:
+      tags:
+        - posts
+      summary: Upload an image to a post
+      description: Upload an image for an existing post using multipart form data
+      operationId: uploadPostImage
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to upload image for
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Image file to upload
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: The image file to upload
+              required:
+                - image
+        required: true
+      responses:
+        '200':
+          description: Image uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image_url:
+                    type: string
+                    format: uri
+                    description: URL of the uploaded image
+                    example: "https://example.com/images/12345.jpg"
+
+  /posts/{uuid}/comments/:
+    post:
+      tags:
+        - posts
+      summary: Add a comment to a post
+      description: Add a new comment to an existing post. Supports nested comments via parent_comment_id.
+      operationId: addPostComment
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to add comment to
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Comment data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The comment text
+                  minLength: 1
+                  maxLength: 1000
+                  example: "Like your post, bro!"
+                parent_comment_id:
+                  type: string
+                  format: uuid
+                  description: UUID of the parent comment for nested replies. Null for top-level comments.
+                  nullable: true
+                  example: null
+              required:
+                - text
+        required: true
+      responses:
+        '200':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: UUID of the created comment
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  text:
+                    type: string
+                    description: The comment text
+                    example: "Like your post, bro!"
+                  parent_comment_id:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: UUID of the parent comment if this is a reply
+                    example: null
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        '404':
+          description: Post or parent comment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - write
+            - read
+
+    get:
+      tags:
+        - posts
+      summary: Get comments for a post
+      description: Get paginated list of comments for a specific post
+      operationId: getPostComments
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to get comments for
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of comments per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of comments
+                    example: 156
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 8
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: UUID of the comment
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        text:
+                          type: string
+                          description: The comment text
+                          example: "Some text"
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: When the comment was created (ISO format)
+                          example: "2024-01-15T10:30:00Z"
+                        avatar_url:
+                          type: string
+                          format: uri
+                          nullable: true
+                          description: URL of the author's avatar
+                          example: "https://example.com/avatars/user123.jpg"
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the comment author
+                              example: "123e4567-e89b-12d3-a456-426614174000"
+                            first_name:
+                              type: string
+                              description: Author's first name
+                              example: "John"
+                            last_name:
+                              type: string
+                              description: Author's last name
+                              example: "Doe"
+                        parent_comment:
+                          type: object
+                          nullable: true
+                          description: Parent comment if this is a reply, null for top-level comments
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the parent comment
+                              example: "440e7400-e29b-41d4-a716-446655440002"
+                            text:
+                              type: string
+                              description: Text of the parent comment
+                              example: "Original comment text"
+                            created_at:
+                              type: string
+                              format: date-time
+                              description: When the parent comment was created
+                              example: "2024-01-15T09:15:00Z"
+                            author:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                  description: UUID of the parent comment author
+                                  example: "789e1234-e89b-12d3-a456-426614174003"
+                                first_name:
+                                  type: string
+                                  description: Parent comment author's first name
+                                  example: "Mike"
+                                last_name:
+                                  type: string
+                                  description: Parent comment author's last name
+                                  example: "Johnson"
+
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+  /posts/{uuid}/:
+    put:
+      tags:
+        - posts
+      summary: Update a post
+      parameters:
+        - name: uuid
+          type: string
+          in: path
+          description: Unique identifier
+          required: true
+          schema:
+            type: string
+            format: uuid
+      description: Update an existing post by ID.
+      operationId: updatePost
+      requestBody:
+        description: Update an existing post
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpdate'
+        required: true
+      responses:
+        '200':
+          # Для Update не буду гонять лишний трафик с ResponseBody, так как данные могут быть жирными.
+          # За деталями бегаем в GET /posts/{uuid}
+          description: Successful operation
+
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        '404':
+          description: Post Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - write
+            - read
+
+    get:
+      tags:
+        - posts
+      summary: Get a post detail
+      description: Get a post detail
+      operationId: getPost
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+        '404':
+          description: Post Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#components/schemas/Error404"
+      security:
+        - OAuth2PasswordBearer:
+            - write
+            - read
+
+  /pet/findByStatus:
+    get:
+      tags:
+        - pet
+      summary: Finds Pets by status.
+      description: Multiple status values can be provided with comma separated strings.
+      operationId: findPetsByStatus
+      parameters:
+        - name: status
+          in: query
+          description: Status values that need to be considered for filter
+          required: false
+          explode: true
+          schema:
+            type: string
+            default: available
+            enum:
+              - available
+              - pending
+              - sold
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+            application/xml:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid status value
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - petstore_auth:
+            - write:pets
+            - read:pets
+  /pet/findByTags:
+    get:
+      tags:
+        - pet
+      summary: Finds Pets by tags.
+      description: Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.
+      operationId: findPetsByTags
+      parameters:
+        - name: tags
+          in: query
+          description: Tags to filter by
+          required: false
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+            application/xml:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid tag value
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - petstore_auth:
+            - write:pets
+            - read:pets
+  /pet/{petId}:
+    get:
+      tags:
+        - pet
+      summary: Find pet by ID.
+      description: Returns a single pet.
+      operationId: getPetById
+      parameters:
+        - name: petId
+          in: path
+          description: ID of pet to return
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Pet not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - api_key: []
+        - petstore_auth:
+            - write:pets
+            - read:pets
+    post:
+      tags:
+        - pet
+      summary: Updates a pet in the store with form data.
+      description: Updates a pet resource based on the form data.
+      operationId: updatePetWithForm
+      parameters:
+        - name: petId
+          in: path
+          description: ID of pet that needs to be updated
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: name
+          in: query
+          description: Name of pet that needs to be updated
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Status of pet that needs to be updated
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid input
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - petstore_auth:
+            - write:pets
+            - read:pets
+    delete:
+      tags:
+        - pet
+      summary: Deletes a pet.
+      description: Delete a pet.
+      operationId: deletePet
+      parameters:
+        - name: api_key
+          in: header
+          description: ''
+          required: false
+          schema:
+            type: string
+        - name: petId
+          in: path
+          description: Pet id to delete
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Pet deleted
+        '400':
+          description: Invalid uuid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - petstore_auth:
+            - write:pets
+            - read:pets
+  /pet/{petId}/uploadImage:
+    post:
+      tags:
+        - pet
+      summary: Uploads an image.
+      description: Upload image of the pet.
+      operationId: uploadFile
+      parameters:
+        - name: petId
+          in: path
+          description: ID of pet to update
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: additionalMetadata
+          in: query
+          description: Additional Metadata
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: No file uploaded
+        '404':
+          description: Pet not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - petstore_auth:
+            - write:pets
+            - read:pets
+  /store/inventory:
+    get:
+      tags:
+        - store
+      summary: Returns pet inventories by status.
+      description: Returns a map of status codes to quantities.
+      operationId: getInventory
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                  format: int32
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - api_key: []
+  /store/order:
+    post:
+      tags:
+        - store
+      summary: Place an order for a pet.
+      description: Place a new order in the store.
+      operationId: placeOrder
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid input
+        '422':
+          description: Validation exception
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /store/order/{orderId}:
+    get:
+      tags:
+        - store
+      summary: Find purchase order by ID.
+      description: For valid response try integer IDs with value <= 5 or > 10. Other values will generate exceptions.
+      operationId: getOrderById
+      parameters:
+        - name: orderId
+          in: path
+          description: ID of order that needs to be fetched
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Order not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - store
+      summary: Delete purchase order by identifier.
+      description: For valid response try integer IDs with value < 1000. Anything above 1000 or nonintegers will generate API errors.
+      operationId: deleteOrder
+      parameters:
+        - name: orderId
+          in: path
+          description: ID of the order that needs to be deleted
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: order deleted
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Order not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /user:
+    post:
+      tags:
+        - user
+      summary: Create user.
+      description: This can only be done by the logged in user.
+      operationId: createUser
+      requestBody:
+        description: Created user object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /user/createWithList:
+    post:
+      tags:
+        - user
+      summary: Creates list of users with given input array.
+      description: Creates list of users with given input array.
+      operationId: createUsersWithListInput
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /user/login:
+    get:
+      tags:
+        - user
+      summary: Logs user into the system.
+      description: Log into the system.
+      operationId: loginUser
+      parameters:
+        - name: username
+          in: query
+          description: The user name for login
+          required: false
+          schema:
+            type: string
+        - name: password
+          in: query
+          description: The password for login in clear text
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          headers:
+            X-Rate-Limit:
+              description: calls per hour allowed by the user
+              schema:
+                type: integer
+                format: int32
+            X-Expires-After:
+              description: date in UTC when token expires
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/xml:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: string
+        '400':
+          description: Invalid username/password supplied
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /user/logout:
+    get:
+      tags:
+        - user
+      summary: Logs out current logged in user session.
+      description: Log user out of the system.
+      operationId: logoutUser
+      parameters: []
+      responses:
+        '200':
+          description: successful operation
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /user/{username}:
+    get:
+      tags:
+        - user
+      summary: Get user by user name.
+      description: Get user detail based on username.
+      operationId: getUserByName
+      parameters:
+        - name: username
+          in: path
+          description: The name that needs to be fetched. Use user1 for testing
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid username supplied
+        '404':
+          description: User not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags:
+        - user
+      summary: Update user resource.
+      description: This can only be done by the logged in user.
+      operationId: updateUser
+      parameters:
+        - name: username
+          in: path
+          description: name that need to be deleted
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update an existent user in the store
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: bad request
+        '404':
+          description: user not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - user
+      summary: Delete user resource.
+      description: This can only be done by the logged in user.
+      operationId: deleteUser
+      parameters:
+        - name: username
+          in: path
+          description: The name that needs to be deleted
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User deleted
+        '400':
+          description: Invalid username supplied
+        '404':
+          description: User not found
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    # Posts
+    PostShort:
+      required:
+        - id
+        - text
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+        text:
+          type: string
+          format: string
+          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+        location:
+          type: object
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+        author:
+          type: object
+          required:
+            - first_name
+            - last_name
+            - id
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+            first_name:
+              type: string
+              example: "John"
+            last_name:
+              type: string
+              example: "Doe"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-08-07T14:32:07Z"
+          description: Creation datetime in ISO 8601 format
+
+    PostDetail:
+      required:
+        - id
+        - text
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+        text:
+          type: string
+          format: string
+          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+        location:
+          type: object
+          nullable:
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+        author:
+          type: object
+          required:
+            - first_name
+            - last_name
+            - id
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+            first_name:
+              type: string
+              example: "John"
+            last_name:
+              type: string
+              example: "Doe"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-08-07T14:32:07Z"
+          description: Creation datetime in ISO 8601 format
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - "https://example.com/images/vietnam-sunset.jpg"
+            - "https://example.com/images/hanoi-street.jpg"
+            - "https://example.com/images/pho-bowl.jpg"
+          description: List of image URLs associated with the post
+        likes_count:
+          type: integer
+          minimum: 0
+          example: 142
+          description: Total number of likes on the post
+        comments_count:
+          type: integer
+          minimum: 0
+          example: 28
+          description: Total number of comments on the post
+
+    PostCreate:
+      required:
+        - text
+      type: object
+      properties:
+        text:
+          type: string
+          format: string
+          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+        location:
+          type: object
+          nullable: true
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+
+    PostUpdate:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          example: This is my first post in TravelGram!
+        location:
+          type: object
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        type:
+          type: string
+        message:
+          type: string
+      xml:
+        name: '##default'
+
+    # Error Responses
+    Error400:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                example: ["body", "field_name"]
+              msg:
+                type: string
+                example: "field required"
+              type:
+                type: string
+                example: "value_error.missing"
+
+    Error404:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Not Found"
+      required:
+        - detail
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: int
+          example: 500
+        detail:
+          type: string
+          example: "Internal Server Error"
+      required:
+        - code
+        - detail
+  requestBodies:
+    Pet:
+      description: Pet object that needs to be added to the store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Pet'
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/Pet'
+    UserArray:
+      description: List of user object
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/User'
+  securitySchemes:
+    OAuth2PasswordBearer:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: /token
+          scopes:
+            write: Modify posts
+            read: Read posts
+    api_key:
+      type: apiKey
+      name: api_key
+      in: header
