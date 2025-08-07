@@ -143,5 +143,5 @@
 
 ```
 1. Traffic (write) = 3.47 * 16 KbB = 55 Kb
-2. Traffic (read) = 23.1 * 20 * 16 Kb = 7392 Kb
+2. Traffic (read) = 23.1 * 16 Kb = 369.6 Kb
 ```
