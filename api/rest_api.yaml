@@ -18,16 +18,18 @@ servers:
 tags:
   - name: posts
     description: Manage users' posts
+  - name: images
+    description: Upload images
   - name: comments
     description: Manage users' comments to posts and their reactions
   - name: reactions
     description: Manage users' reaction to posts/comments
-  - name: subscribtion
-    description: Manage users' subs to each other
   - name: search
     description: Search places and posts related to each place
   - name: feed
     description: Read users's posts you subscribed and you own posts
+  - name: users
+    description: Manage users's actions
 paths:
   # Posts
   /posts/:
@@ -38,7 +40,7 @@ paths:
       description: Create a new post about your last adventure
       operationId: createPost
       requestBody:
-        description: Update an existing post
+        description: Crate an existing post
         content:
           application/json:
             schema:
@@ -146,48 +148,27 @@ paths:
             - write
             - read
 
-  /posts/{uuid}/images/:
+  # Images
+  /images/:
     post:
       tags:
-        - posts
-      summary: Upload an image to a post
-      description: Upload an image for an existing post using multipart form data
-      operationId: uploadPostImage
-      parameters:
-        - name: uuid
-          in: path
-          description: UUID of the post to upload image for
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - images
+      summary: Upload an image
+      description: Upload an image
+      operationId: uploadImage
       requestBody:
-        description: Image file to upload
+        required: true
         content:
           multipart/form-data:
             schema:
               type: object
               properties:
-                image:
+                file:
                   type: string
                   format: binary
-                  description: The image file to upload
-              required:
-                - image
-        required: true
       responses:
         '200':
-          description: Image uploaded successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  image_url:
-                    type: string
-                    format: uri
-                    description: URL of the uploaded image
-                    example: "https://example.com/images/12345.jpg"
+          description: Successfully uploaded
 
   # Comments
   /posts/{uuid}/comments/:
@@ -431,7 +412,7 @@ paths:
         - OAuth2PasswordBearer:
             - read
 
-  # Reactions
+  # Post's reactions
   /reactions/posts/{uuid}/:
     post:
       tags:
@@ -473,6 +454,125 @@ paths:
                     type: string
                     enum: [like, love, haha, wow, sad, angry]
 
+    get:
+      tags:
+        - reactions
+      summary: Get all reactions for a particular post
+      description: Get paginated list of reactions for a specific post
+      operationId: getPostReactions
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to get reactions for
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of reactions per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Reactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of reactions
+                    example: 156
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 8
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  reactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: UUID of the reaction
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        type:
+                          type: string
+                          description: Type of reaction
+                          enum: [like, love, haha, wow, sad, angry]
+                          example: "like"
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the user who reacted
+                              example: "123e4567-e89b-12d3-a456-426614174000"
+                            first_name:
+                              type: string
+                              description: Author's first name
+                              example: "John"
+                            last_name:
+                              type: string
+                              description: Author's last name
+                              example: "Doe"
+                            avatar_url:
+                              type: string
+                              format: uri
+                              nullable: true
+                              description: URL of the author's avatar
+                              example: "https://example.com/avatars/user123.jpg"
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+  # Comment's reactions
   /reactions/comments/{uuid}/:
     post:
       tags:
@@ -514,11 +614,129 @@ paths:
                     type: string
                     enum: [like, love, haha, wow, sad, angry]
 
-  # Subscribtion
-  /subscriptions/users/{user_id}/:
+    get:
+      tags:
+        - reactions
+      summary: Get all reactions for a particular comment
+      description: Get paginated list of reactions for a specific comment
+      operationId: getCommentReactions
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the comment to get reactions for
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of reactions per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Reactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of reactions
+                    example: 45
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 3
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  reactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: UUID of the reaction
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        type:
+                          type: string
+                          description: Type of reaction
+                          enum: [like, love, haha, wow, sad, angry]
+                          example: "love"
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the user who reacted
+                              example: "123e4567-e89b-12d3-a456-426614174000"
+                            first_name:
+                              type: string
+                              description: Author's first name
+                              example: "Jane"
+                            last_name:
+                              type: string
+                              description: Author's last name
+                              example: "Smith"
+                            avatar_url:
+                              type: string
+                              format: uri
+                              nullable: true
+                              description: URL of the author's avatar
+                              example: "https://example.com/avatars/user456.jpg"
+        '404':
+          description: Comment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+  # Users
+  /users/{user_id}/subscribtions/:
     post:
       tags:
-        - subscribtion
+        - users
       summary: Follow a user
       description: Subscribe to a user and optionally allow notifications
       operationId: followUser
@@ -555,6 +773,82 @@ paths:
                     type: boolean
                     description: Whether notifications are allowed for this subscription
                     example: true
+
+  /users/{user_id}/feed/:
+    get:
+      tags:
+        - users
+      summary: Get a user’s feed
+      description: Get posts for a specific user
+      operationId: getUserFeed
+      parameters:
+        - name: user_id
+          in: path
+          description: UUID of the user whose feed to retrieve
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                      example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+                    text:
+                      type: string
+                      example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+                    location:
+                      type: object
+                      properties:
+                        latitude:
+                          type: number
+                          format: float
+                          example: 48.858844
+                        longitude:
+                          type: number
+                          format: float
+                          example: 2.294351
+                    author:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+                        first_name:
+                          type: string
+                          example: "John"
+                        last_name:
+                          type: string
+                          example: "Doe"
+                    created_at:
+                      type: string
+                      format: date-time
+                      example: "2025-08-07T14:32:07Z"
+                    images:
+                      type: array
+                      items:
+                        type: string
+                        format: uri
+                      example:
+                        - "https://example.com/images/vietnam-sunset.jpg"
+                        - "https://example.com/images/hanoi-street.jpg"
+                        - "https://example.com/images/pho-bowl.jpg"
+                    likes_count:
+                      type: integer
+                      example: 142
+                    comments_count:
+                      type: integer
+                      example: 28
 
   # Search
   /search/:
@@ -646,149 +940,131 @@ paths:
                       type: integer
                       example: 28
 
-  /feed/me/:
+  # Feed
+  /feed/:
     get:
       tags:
         - feed
       summary: Get my feed
-      description: Get posts from users I follow
+      description: Get paginated posts from users I follow
       operationId: getMyFeed
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      format: uuid
-                      example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
-                    text:
-                      type: string
-                      example: "My adventure in Vietnam! This blog post relates to my last adventure..."
-                    location:
-                      type: object
-                      properties:
-                        latitude:
-                          type: number
-                          format: float
-                          example: 48.858844
-                        longitude:
-                          type: number
-                          format: float
-                          example: 2.294351
-                    author:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          format: uuid
-                          example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
-                        first_name:
-                          type: string
-                          example: "John"
-                        last_name:
-                          type: string
-                          example: "Doe"
-                    created_at:
-                      type: string
-                      format: date-time
-                      example: "2025-08-07T14:32:07Z"
-                    images:
-                      type: array
-                      items:
-                        type: string
-                        format: uri
-                      example:
-                        - "https://example.com/images/vietnam-sunset.jpg"
-                        - "https://example.com/images/hanoi-street.jpg"
-                        - "https://example.com/images/pho-bowl.jpg"
-                    likes_count:
-                      type: integer
-                      example: 142
-                    comments_count:
-                      type: integer
-                      example: 28
-
-  /feed/users/{user_id}/:
-    get:
-      tags:
-        - feed
-      summary: Get a user’s feed
-      description: Get posts for a specific user
-      operationId: getUserFeed
       parameters:
-        - name: user_id
-          in: path
-          description: UUID of the user whose feed to retrieve
-          required: true
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
           schema:
-            type: string
-            format: uuid
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of posts per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
       responses:
         '200':
-          description: Successful operation
+          description: Feed retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      format: uuid
-                      example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
-                    text:
-                      type: string
-                      example: "My adventure in Vietnam! This blog post relates to my last adventure..."
-                    location:
-                      type: object
-                      properties:
-                        latitude:
-                          type: number
-                          format: float
-                          example: 48.858844
-                        longitude:
-                          type: number
-                          format: float
-                          example: 2.294351
-                    author:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of posts
+                    example: 320
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 16
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  feed:
+                    type: array
+                    items:
                       type: object
                       properties:
                         id:
                           type: string
                           format: uuid
-                          example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
-                        first_name:
+                          example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+                        text:
                           type: string
-                          example: "John"
-                        last_name:
+                          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+                        location:
+                          type: object
+                          properties:
+                            latitude:
+                              type: number
+                              format: float
+                              example: 48.858844
+                            longitude:
+                              type: number
+                              format: float
+                              example: 2.294351
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+                            first_name:
+                              type: string
+                              example: "John"
+                            last_name:
+                              type: string
+                              example: "Doe"
+                        created_at:
                           type: string
-                          example: "Doe"
-                    created_at:
-                      type: string
-                      format: date-time
-                      example: "2025-08-07T14:32:07Z"
-                    images:
-                      type: array
-                      items:
-                        type: string
-                        format: uri
-                      example:
-                        - "https://example.com/images/vietnam-sunset.jpg"
-                        - "https://example.com/images/hanoi-street.jpg"
-                        - "https://example.com/images/pho-bowl.jpg"
-                    likes_count:
-                      type: integer
-                      example: 142
-                    comments_count:
-                      type: integer
-                      example: 28
+                          format: date-time
+                          example: "2025-08-07T14:32:07Z"
+                        images:
+                          type: array
+                          items:
+                            type: string
+                            format: uri
+                          example:
+                            - "https://example.com/images/vietnam-sunset.jpg"
+                            - "https://example.com/images/hanoi-street.jpg"
+                            - "https://example.com/images/pho-bowl.jpg"
+                        likes_count:
+                          type: integer
+                          example: 142
+                        comments_count:
+                          type: integer
+                          example: 28
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
 
 
 components:
