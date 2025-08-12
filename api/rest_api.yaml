@@ -1,0 +1,1299 @@
+openapi: 3.0.4
+info:
+  title: Swagger TravelGram - OpenAPI 3.0
+  description: |-
+     TravelGram designed specifically for travelers and travel enthusiasts. Users can share their journey experiences through photo-rich posts with location tags, discover trending destinations, and connect with fellow travelers. The platform enables users to build their travel community by following other adventurers, engaging through comments and reactions, and exploring personalized feeds showcasing the latest travel stories from around the world. Whether seeking inspiration for the next trip or sharing memorable moments from current adventures, TravelGram connects people through their shared passion for exploration
+  termsOfService: https://swagger.io/terms/
+  contact:
+    email: apiteam@swagger.io
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.12
+externalDocs:
+  description: Find out more about Swagger
+  url: https://swagger.io
+servers:
+  - url: https://petstore3.swagger.io/api/v3
+tags:
+  - name: posts
+    description: Manage users' posts
+  - name: images
+    description: Upload images
+  - name: comments
+    description: Manage users' comments to posts and their reactions
+  - name: reactions
+    description: Manage users' reaction to posts/comments
+  - name: search
+    description: Search places and posts related to each place
+  - name: feed
+    description: Read users's posts you subscribed and you own posts
+  - name: users
+    description: Manage users's actions
+paths:
+  # Posts
+  /posts/:
+    post:
+      tags:
+        - posts
+      summary: Create a post
+      description: Create a new post about your last adventure
+      operationId: createPost
+      requestBody:
+        description: Crate an existing post
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostShort"
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /posts/{uuid}/:
+    put:
+      tags:
+        - posts
+      summary: Update a post
+      description: Update an existing post by ID.
+      operationId: updatePost
+      parameters:
+        - name: uuid
+          in: path
+          description: Unique identifier
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Update an existing post
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpdate'
+      responses:
+        '200':
+          description: Successful operation
+          # Для Update не буду гонять лишний трафик с ResponseBody, так как данные могут быть жирными.
+          # За деталями бегаем в GET /posts/{uuid}
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        '404':
+          description: Post Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - write
+            - read
+
+    get:
+      tags:
+        - posts
+      summary: Get a post detail
+      description: Get a post detail
+      operationId: getPost
+      parameters:
+        - name: uuid
+          in: path
+          description: Unique identifier
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+        '404':
+          description: Post Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+      security:
+        - OAuth2PasswordBearer:
+            - write
+            - read
+
+  # Images
+  /images/:
+    post:
+      tags:
+        - images
+      summary: Upload an image
+      description: Upload an image
+      operationId: uploadImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Successfully uploaded
+
+  # Comments
+  /posts/{uuid}/comments/:
+    post:
+      tags:
+        - comments
+      summary: Add a comment to a post
+      description: Add a new comment to an existing post. Supports nested comments via parent_comment_id.
+      operationId: addPostComment
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to add comment to
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Comment data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: The comment text
+                  minLength: 1
+                  maxLength: 1000
+                  example: "Like your post, bro!"
+                parent_comment_id:
+                  type: string
+                  format: uuid
+                  description: UUID of the parent comment for nested replies. Null for top-level comments.
+                  nullable: true
+                  example: null
+              required:
+                - text
+        required: true
+      responses:
+        '200':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: UUID of the created comment
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  text:
+                    type: string
+                    description: The comment text
+                    example: "Like your post, bro!"
+                  parent_comment_id:
+                    type: string
+                    format: uuid
+                    nullable: true
+                    description: UUID of the parent comment if this is a reply
+                    example: null
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error400"
+        '404':
+          description: Post or parent comment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - write
+            - read
+
+    get:
+      tags:
+        - comments
+      summary: Get comments for a post
+      description: Get paginated list of comments for a specific post
+      operationId: getPostComments
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to get comments for
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of comments per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of comments
+                    example: 156
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 8
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: UUID of the comment
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        text:
+                          type: string
+                          description: The comment text
+                          example: "Some text"
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: When the comment was created (ISO format)
+                          example: "2024-01-15T10:30:00Z"
+                        avatar_url:
+                          type: string
+                          format: uri
+                          nullable: true
+                          description: URL of the author's avatar
+                          example: "https://example.com/avatars/user123.jpg"
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the comment author
+                              example: "123e4567-e89b-12d3-a456-426614174000"
+                            first_name:
+                              type: string
+                              description: Author's first name
+                              example: "John"
+                            last_name:
+                              type: string
+                              description: Author's last name
+                              example: "Doe"
+                        parent_comment:
+                          type: object
+                          nullable: true
+                          description: Parent comment if this is a reply, null for top-level comments
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the parent comment
+                              example: "440e7400-e29b-41d4-a716-446655440002"
+                            text:
+                              type: string
+                              description: Text of the parent comment
+                              example: "Original comment text"
+                            created_at:
+                              type: string
+                              format: date-time
+                              description: When the parent comment was created
+                              example: "2024-01-15T09:15:00Z"
+                            author:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                  description: UUID of the parent comment author
+                                  example: "789e1234-e89b-12d3-a456-426614174003"
+                                first_name:
+                                  type: string
+                                  description: Parent comment author's first name
+                                  example: "Mike"
+                                last_name:
+                                  type: string
+                                  description: Parent comment author's last name
+                                  example: "Johnson"
+
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+  # Post's reactions
+  /reactions/posts/{uuid}/:
+    post:
+      tags:
+        - reactions
+      summary: React to a post
+      description: Add a reaction to an existing post
+      operationId: postPostReaction
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to react to
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Reaction type to add
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  description: The type of reaction
+                  enum: [like, love, haha, wow, sad, angry]
+              required:
+                - type
+      responses:
+        '200':
+          description: Reaction added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [like, love, haha, wow, sad, angry]
+
+    get:
+      tags:
+        - reactions
+      summary: Get all reactions for a particular post
+      description: Get paginated list of reactions for a specific post
+      operationId: getPostReactions
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the post to get reactions for
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of reactions per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Reactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of reactions
+                    example: 156
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 8
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  reactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: UUID of the reaction
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        type:
+                          type: string
+                          description: Type of reaction
+                          enum: [like, love, haha, wow, sad, angry]
+                          example: "like"
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the user who reacted
+                              example: "123e4567-e89b-12d3-a456-426614174000"
+                            first_name:
+                              type: string
+                              description: Author's first name
+                              example: "John"
+                            last_name:
+                              type: string
+                              description: Author's last name
+                              example: "Doe"
+                            avatar_url:
+                              type: string
+                              format: uri
+                              nullable: true
+                              description: URL of the author's avatar
+                              example: "https://example.com/avatars/user123.jpg"
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+  # Comment's reactions
+  /reactions/comments/{uuid}/:
+    post:
+      tags:
+        - reactions
+      summary: React to a comment
+      description: Add a reaction to an existing comment
+      operationId: postCommentReaction
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the comment to react to
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Reaction type to add
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  description: The type of reaction
+                  enum: [like, love, haha, wow, sad, angry]
+              required:
+                - type
+      responses:
+        '200':
+          description: Reaction added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [like, love, haha, wow, sad, angry]
+
+    get:
+      tags:
+        - reactions
+      summary: Get all reactions for a particular comment
+      description: Get paginated list of reactions for a specific comment
+      operationId: getCommentReactions
+      parameters:
+        - name: uuid
+          in: path
+          description: UUID of the comment to get reactions for
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of reactions per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Reactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of reactions
+                    example: 45
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 3
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  reactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: UUID of the reaction
+                          example: "550e8400-e29b-41d4-a716-446655440000"
+                        type:
+                          type: string
+                          description: Type of reaction
+                          enum: [like, love, haha, wow, sad, angry]
+                          example: "love"
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: UUID of the user who reacted
+                              example: "123e4567-e89b-12d3-a456-426614174000"
+                            first_name:
+                              type: string
+                              description: Author's first name
+                              example: "Jane"
+                            last_name:
+                              type: string
+                              description: Author's last name
+                              example: "Smith"
+                            avatar_url:
+                              type: string
+                              format: uri
+                              nullable: true
+                              description: URL of the author's avatar
+                              example: "https://example.com/avatars/user456.jpg"
+        '404':
+          description: Comment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error404"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+  # Users
+  /users/{user_id}/subscribtions/:
+    post:
+      tags:
+        - users
+      summary: Follow a user
+      description: Subscribe to a user and optionally allow notifications
+      operationId: followUser
+      parameters:
+        - name: user_id
+          in: path
+          description: ID of the user to follow
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Follow settings
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                allow_notification:
+                  type: boolean
+                  description: Whether to allow notifications from this user
+                  example: true
+              required:
+                - allow_notification
+      responses:
+        '200':
+          description: Follow request processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allow_notification:
+                    type: boolean
+                    description: Whether notifications are allowed for this subscription
+                    example: true
+
+  /users/{user_id}/feed/:
+    get:
+      tags:
+        - users
+      summary: Get a user’s feed
+      description: Get posts for a specific user
+      operationId: getUserFeed
+      parameters:
+        - name: user_id
+          in: path
+          description: UUID of the user whose feed to retrieve
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                      example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+                    text:
+                      type: string
+                      example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+                    location:
+                      type: object
+                      properties:
+                        latitude:
+                          type: number
+                          format: float
+                          example: 48.858844
+                        longitude:
+                          type: number
+                          format: float
+                          example: 2.294351
+                    author:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+                        first_name:
+                          type: string
+                          example: "John"
+                        last_name:
+                          type: string
+                          example: "Doe"
+                    created_at:
+                      type: string
+                      format: date-time
+                      example: "2025-08-07T14:32:07Z"
+                    images:
+                      type: array
+                      items:
+                        type: string
+                        format: uri
+                      example:
+                        - "https://example.com/images/vietnam-sunset.jpg"
+                        - "https://example.com/images/hanoi-street.jpg"
+                        - "https://example.com/images/pho-bowl.jpg"
+                    likes_count:
+                      type: integer
+                      example: 142
+                    comments_count:
+                      type: integer
+                      example: 28
+
+  # Search
+  /search/:
+    get:
+      tags:
+        - search
+      summary: Search posts
+      description: Search for posts by keyword, location, or other filters
+      operationId: searchPosts
+      parameters:
+        - name: query
+          in: query
+          description: Search query string
+          required: false
+          schema:
+            type: string
+        - name: latitude
+          in: query
+          description: Filter by latitude
+          required: false
+          schema:
+            type: number
+            format: float
+        - name: longitude
+          in: query
+          description: Filter by longitude
+          required: false
+          schema:
+            type: number
+            format: float
+      responses:
+        '200':
+          description: Successful search
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                      example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+                    text:
+                      type: string
+                      example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+                    location:
+                      type: object
+                      properties:
+                        latitude:
+                          type: number
+                          format: float
+                          example: 48.858844
+                        longitude:
+                          type: number
+                          format: float
+                          example: 2.294351
+                    author:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+                        first_name:
+                          type: string
+                          example: "John"
+                        last_name:
+                          type: string
+                          example: "Doe"
+                    created_at:
+                      type: string
+                      format: date-time
+                      example: "2025-08-07T14:32:07Z"
+                    images:
+                      type: array
+                      items:
+                        type: string
+                        format: uri
+                      example:
+                        - "https://example.com/images/vietnam-sunset.jpg"
+                        - "https://example.com/images/hanoi-street.jpg"
+                        - "https://example.com/images/pho-bowl.jpg"
+                    likes_count:
+                      type: integer
+                      example: 142
+                    comments_count:
+                      type: integer
+                      example: 28
+
+  # Feed
+  /feed/:
+    get:
+      tags:
+        - feed
+      summary: Get my feed
+      description: Get paginated posts from users I follow
+      operationId: getMyFeed
+      parameters:
+        - name: page
+          in: query
+          description: Page number (starts from 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of posts per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Feed retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                  total_items:
+                    type: integer
+                    description: Total number of posts
+                    example: 320
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 16
+                  has_next:
+                    type: boolean
+                    description: Whether there are more pages
+                    example: true
+                  has_prev:
+                    type: boolean
+                    description: Whether there are previous pages
+                    example: false
+                  feed:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+                        text:
+                          type: string
+                          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+                        location:
+                          type: object
+                          properties:
+                            latitude:
+                              type: number
+                              format: float
+                              example: 48.858844
+                            longitude:
+                              type: number
+                              format: float
+                              example: 2.294351
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+                            first_name:
+                              type: string
+                              example: "John"
+                            last_name:
+                              type: string
+                              example: "Doe"
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2025-08-07T14:32:07Z"
+                        images:
+                          type: array
+                          items:
+                            type: string
+                            format: uri
+                          example:
+                            - "https://example.com/images/vietnam-sunset.jpg"
+                            - "https://example.com/images/hanoi-street.jpg"
+                            - "https://example.com/images/pho-bowl.jpg"
+                        likes_count:
+                          type: integer
+                          example: 142
+                        comments_count:
+                          type: integer
+                          example: 28
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OAuth2PasswordBearer:
+            - read
+
+
+
+components:
+  schemas:
+    # Posts
+    PostShort:
+      required:
+        - id
+        - text
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+        text:
+          type: string
+          format: string
+          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+        location:
+          type: object
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+        author:
+          type: object
+          required:
+            - first_name
+            - last_name
+            - id
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+            first_name:
+              type: string
+              example: "John"
+            last_name:
+              type: string
+              example: "Doe"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-08-07T14:32:07Z"
+          description: Creation datetime in ISO 8601 format
+
+    PostDetail:
+      required:
+        - id
+        - text
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "2d0d7f45-e30d-4dfd-85c3-79b76e00fa60"
+        text:
+          type: string
+          format: string
+          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+        location:
+          type: object
+          nullable: true
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+        author:
+          type: object
+          required:
+            - first_name
+            - last_name
+            - id
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "967b5ff7-14ed-45d1-99b5-da11b260c8f7"
+            first_name:
+              type: string
+              example: "John"
+            last_name:
+              type: string
+              example: "Doe"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-08-07T14:32:07Z"
+          description: Creation datetime in ISO 8601 format
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - "https://example.com/images/vietnam-sunset.jpg"
+            - "https://example.com/images/hanoi-street.jpg"
+            - "https://example.com/images/pho-bowl.jpg"
+          description: List of image URLs associated with the post
+        likes_count:
+          type: integer
+          minimum: 0
+          example: 142
+          description: Total number of likes on the post
+        comments_count:
+          type: integer
+          minimum: 0
+          example: 28
+          description: Total number of comments on the post
+
+    PostCreate:
+      required:
+        - text
+      type: object
+      properties:
+        text:
+          type: string
+          format: string
+          example: "My adventure in Vietnam! This blog post relates to my last adventure..."
+        location:
+          type: object
+          nullable: true
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+
+    PostUpdate:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          example: This is my first post in TravelGram!
+        location:
+          type: object
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 48.858844
+            longitude:
+              type: number
+              format: float
+              example: 2.294351
+
+    # Error Responses
+    Error400:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                example: ["body", "field_name"]
+              msg:
+                type: string
+                example: "field required"
+              type:
+                type: string
+                example: "value_error.missing"
+
+    Error404:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Not Found"
+      required:
+        - detail
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 500
+        detail:
+          type: string
+          example: Internal Server Error
+      required:
+        - code
+        - detail
+
+  securitySchemes:
+    OAuth2PasswordBearer:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: /token
+          scopes:
+            write: Modify posts
+            read: Read posts
+    api_key:
+      type: apiKey
+      name: api_key
+      in: header
