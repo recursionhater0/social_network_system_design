@@ -169,6 +169,16 @@ paths:
       responses:
         '200':
           description: Successfully uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    example: https://example.com/uploads/myimage.jpg
+
 
   # Comments
   /posts/{uuid}/comments/:
