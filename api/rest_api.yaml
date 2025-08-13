@@ -757,32 +757,9 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
-        description: Follow settings
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                allow_notification:
-                  type: boolean
-                  description: Whether to allow notifications from this user
-                  example: true
-              required:
-                - allow_notification
       responses:
         '200':
           description: Follow request processed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  allow_notification:
-                    type: boolean
-                    description: Whether notifications are allowed for this subscription
-                    example: true
 
   /users/{user_id}/feed/:
     get:
